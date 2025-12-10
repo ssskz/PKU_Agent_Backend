@@ -1,0 +1,310 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AIOT 外部插件服务",
+    "description": "简洁的IoT设备控制API，供外部插件（Coze、GPT等）调用。只需设备UUID，无需token认证。",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:9000",
+      "description": "本地开发服务器"
+    },
+    {
+      "url": "https://your-domain.com",
+      "description": "生产服务器（请替换为实际域名）"
+    }
+  ],
+  "paths": {
+    "/plugin/sensor-data": {
+      "get": {
+        "summary": "获取传感器数据",
+        "description": "获取指定设备的传感器数据（温度、湿度等）",
+        "operationId": "getSensorData",
+        "tags": ["传感器"],
+        "parameters": [
+          {
+            "name": "uuid",
+            "in": "query",
+            "description": "设备UUID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "df13f23c-71c9-46ab-8eb1-715f3127fce2"
+            }
+          },
+          {
+            "name": "sensor",
+            "in": "query",
+            "description": "传感器名称：温度/湿度/DS18B20",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["温度", "湿度", "DS18B20", "temperature", "humidity"],
+              "example": "温度"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功获取传感器数据",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardResponse"
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "获取传感器数据成功",
+                  "data": {
+                    "device_uuid": "df13f23c-71c9-46ab-8eb1-715f3127fce2",
+                    "sensor_name": "DHT11温度",
+                    "value": 24.5,
+                    "unit": "°C",
+                    "timestamp": "2025-11-11T07:30:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "设备或传感器未找到",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plugin/control": {
+      "post": {
+        "summary": "控制设备端口",
+        "description": "控制设备的LED、继电器、舵机、PWM等端口",
+        "operationId": "controlDevice",
+        "tags": ["控制"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRequest"
+              },
+              "examples": {
+                "led_on": {
+                  "summary": "打开LED",
+                  "value": {
+                    "device_uuid": "df13f23c-71c9-46ab-8eb1-715f3127fce2",
+                    "port_type": "led",
+                    "port_id": 1,
+                    "action": "on"
+                  }
+                },
+                "servo_set": {
+                  "summary": "设置舵机角度",
+                  "value": {
+                    "device_uuid": "df13f23c-71c9-46ab-8eb1-715f3127fce2",
+                    "port_type": "servo",
+                    "port_id": 1,
+                    "action": "set",
+                    "value": 90
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "控制命令发送成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "设备未找到",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plugin/preset": {
+      "post": {
+        "summary": "执行预设指令",
+        "description": "执行预定义的设备控制序列（如LED闪烁、舵机摆动等）",
+        "operationId": "executePreset",
+        "tags": ["预设"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresetRequest"
+              },
+              "examples": {
+                "led_blink": {
+                  "summary": "LED闪烁",
+                  "value": {
+                    "device_uuid": "df13f23c-71c9-46ab-8eb1-715f3127fce2",
+                    "preset_name": "led_blink",
+                    "parameters": {
+                      "led_id": 1,
+                      "count": 5,
+                      "on_time": 500,
+                      "off_time": 500
+                    }
+                  }
+                },
+                "servo_swing": {
+                  "summary": "舵机摆动",
+                  "value": {
+                    "device_uuid": "df13f23c-71c9-46ab-8eb1-715f3127fce2",
+                    "preset_name": "servo_swing",
+                    "parameters": {
+                      "servo_id": 1,
+                      "center_angle": 90,
+                      "swing_range": 30,
+                      "speed": 100,
+                      "cycles": 5
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "预设指令执行成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "不支持的预设指令",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "StandardResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "状态码，200表示成功"
+          },
+          "msg": {
+            "type": "string",
+            "description": "响应消息"
+          },
+          "data": {
+            "type": "object",
+            "description": "响应数据"
+          }
+        },
+        "required": ["code", "msg", "data"]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string",
+            "description": "错误详情"
+          }
+        }
+      },
+      "ControlRequest": {
+        "type": "object",
+        "properties": {
+          "device_uuid": {
+            "type": "string",
+            "description": "设备UUID",
+            "example": "df13f23c-71c9-46ab-8eb1-715f3127fce2"
+          },
+          "port_type": {
+            "type": "string",
+            "description": "端口类型",
+            "enum": ["led", "relay", "servo", "pwm"],
+            "example": "led"
+          },
+          "port_id": {
+            "type": "integer",
+            "description": "端口ID（1-4）",
+            "example": 1
+          },
+          "action": {
+            "type": "string",
+            "description": "动作",
+            "enum": ["on", "off", "set"],
+            "example": "on"
+          },
+          "value": {
+            "type": "integer",
+            "description": "设置值（可选）",
+            "example": 90
+          }
+        },
+        "required": ["device_uuid", "port_type", "port_id", "action"]
+      },
+      "PresetRequest": {
+        "type": "object",
+        "properties": {
+          "device_uuid": {
+            "type": "string",
+            "description": "设备UUID",
+            "example": "df13f23c-71c9-46ab-8eb1-715f3127fce2"
+          },
+          "preset_name": {
+            "type": "string",
+            "description": "预设名称",
+            "enum": [
+              "led_blink",
+              "led_wave",
+              "relay_timed",
+              "servo_rotate",
+              "servo_swing",
+              "pwm_fade",
+              "pwm_breathe",
+              "pwm_pulse"
+            ],
+            "example": "led_blink"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "预设参数",
+            "additionalProperties": true
+          }
+        },
+        "required": ["device_uuid", "preset_name"]
+      }
+    }
+  }
+}
+
