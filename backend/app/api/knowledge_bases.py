@@ -705,9 +705,9 @@ async def get_available_knowledge_bases_for_agent(
             KnowledgeBase.deleted_at.is_(None)
         )
         
-        # 检查 is_active 字段是否存在
+        # 检查 is_active 字段是否存在（注意：is_active 是 Integer 类型，1=激活，0=禁用）
         if hasattr(KnowledgeBase, 'is_active'):
-            query = query.filter(KnowledgeBase.is_active == True)
+            query = query.filter(KnowledgeBase.is_active == 1)
         
         # 排除已关联的知识库
         if associated_kb_ids:
@@ -735,13 +735,14 @@ async def get_available_knowledge_bases_for_agent(
         except Exception as e:
             logger.error(f"[可用知识库] 查询公开知识库失败: {e}")
         
-        # 3. 机构级/课程级知识库（根据用户机构）
-        if current_user.school_id:
-            logger.info(f"[可用知识库] 查询机构级知识库 (school_id={current_user.school_id})...")
+        # 3. 机构级/课程级知识库（根据用户机构，如果有school_id字段的话）
+        user_school_id = getattr(current_user, 'school_id', None)
+        if user_school_id:
+            logger.info(f"[可用知识库] 查询机构级知识库 (school_id={user_school_id})...")
             try:
                 school_kbs = query.filter(
                     KnowledgeBase.scope_type == 'school',
-                    KnowledgeBase.scope_id == current_user.school_id
+                    KnowledgeBase.scope_id == user_school_id
                 ).all()
                 accessible_kb_ids.extend([kb.id for kb in school_kbs])
                 logger.info(f"[可用知识库] 找到 {len(school_kbs)} 个机构级知识库")
@@ -769,6 +770,8 @@ async def get_available_knowledge_bases_for_agent(
                         logger.info(f"[可用知识库] 找到 {len(course_kbs)} 个课程级知识库")
                 except Exception as e:
                     logger.error(f"[可用知识库] 查询课程级知识库失败: {e}")
+        else:
+            logger.info(f"[可用知识库] 用户没有 school_id，跳过机构级知识库查询")
         
         # 4. 系统级知识库
         logger.info(f"[可用知识库] 查询系统级知识库...")
@@ -1126,4 +1129,3 @@ async def remove_agent_knowledge_base(
     db.commit()
     
     return success_response(message="知识库关联已移除")
-
