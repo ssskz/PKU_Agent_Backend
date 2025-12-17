@@ -142,19 +142,37 @@ class PluginService:
                 body_params[key] = value
         
         try:
+            # 增强日志输出
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"🔌 [插件调用] 开始执行")
+            logger.info(f"  函数名: {function_name}")
+            logger.info(f"  方法: {method}")
+            logger.info(f"  完整URL: {url}")
+            logger.info(f"  Query参数: {json.dumps(query_params, ensure_ascii=False)}")
+            logger.info(f"  Body参数: {json.dumps(body_params, ensure_ascii=False)}")
+            
             # 发送请求
             if method == "GET":
+                logger.info(f"  发送GET请求...")
                 response = requests.get(url, params=query_params, timeout=30)
             elif method == "POST":
+                logger.info(f"  发送POST请求...")
                 response = requests.post(url, json=body_params, timeout=30)
             elif method == "PUT":
+                logger.info(f"  发送PUT请求...")
                 response = requests.put(url, json=body_params, timeout=30)
             elif method == "DELETE":
+                logger.info(f"  发送DELETE请求...")
                 response = requests.delete(url, params=query_params, timeout=30)
             elif method == "PATCH":
+                logger.info(f"  发送PATCH请求...")
                 response = requests.patch(url, json=body_params, timeout=30)
             else:
                 return {"error": f"不支持的 HTTP 方法: {method}"}
+            
+            logger.info(f"  响应状态码: {response.status_code}")
+            logger.info(f"  响应内容: {response.text[:500]}")
             
             response.raise_for_status()
             
@@ -204,4 +222,3 @@ class PluginService:
 def create_plugin_service() -> PluginService:
     """创建插件服务实例"""
     return PluginService()
-

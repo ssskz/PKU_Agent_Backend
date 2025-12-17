@@ -267,18 +267,13 @@ async def chat_with_agent(
     # 6. 构建消息列表
     messages = []
     
-    # 添加系统提示词
+    # 添加系统提示词（必须先添加，不管有没有知识库）
     system_content = agent.system_prompt if agent.system_prompt else "你是一个智能助手。"
     
     # 如果有知识库检索结果，添加到系统提示词中
     if knowledge_context:
         system_content += knowledge_context
         system_content += "\n\n请基于以上参考内容回答用户问题。如果参考内容中没有相关信息，可以使用你的知识进行回答，但请说明这不是来自参考资料。"
-    
-        messages.append({
-            "role": "system",
-        "content": system_content
-        })
     
     # 添加插件能力说明
     if functions:
@@ -293,13 +288,13 @@ async def chat_with_agent(
             "\n\n当需要使用工具时，请明确说明要调用哪个工具。"
         )
         
-        if messages:
-            messages[0]["content"] += plugin_prompt
-        else:
-            messages.append({
-                "role": "system",
-                "content": "你是一个智能助手。" + plugin_prompt
-            })
+        system_content += plugin_prompt
+    
+    # 添加完整的系统消息
+    messages.append({
+        "role": "system",
+        "content": system_content
+    })
     
     # 添加历史消息
     for msg in request.history:
@@ -450,4 +445,3 @@ async def get_my_devices(
             status_code=500,
             detail=f"获取设备列表失败: {str(e)}"
         )
-
