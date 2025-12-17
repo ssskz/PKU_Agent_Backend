@@ -54,8 +54,7 @@ def init_admin_user(db: Session) -> bool:
             email=admin_email,
             password_hash=hashed_password,
             role='platform_admin',  # 平台管理员角色
-            is_active=True,
-            school_id=None  # 平台管理员不属于任何机构
+            is_active=True
         )
         db.add(admin_user)
         db.commit()
@@ -82,4 +81,3 @@ def init_admin_on_startup():
             db.close()
     except Exception as e:
         logger.error(f"❌ 初始化管理员账号时发生错误: {e}", exc_info=True)
-

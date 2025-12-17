@@ -236,6 +236,7 @@ CREATE TABLE `aiot_course_device_authorizations` (
   `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '授权ID',
   `uuid` char(36) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'UUID',
   `course_id` int(11) NOT NULL COMMENT '课程ID',
+  `device_group_id` int(11) NOT NULL COMMENT '设备组ID',
   `authorized_by` int(11) NOT NULL COMMENT '授权人ID（学校管理员）',
   `authorized_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '授权时间',
   `expires_at` datetime DEFAULT NULL COMMENT '过期时间',
@@ -342,6 +343,7 @@ CREATE TABLE `aiot_device_groups` (
 
 CREATE TABLE `aiot_device_group_members` (
   `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+  `group_id` int(11) NOT NULL COMMENT '设备组ID',
   `device_id` int(11) NOT NULL COMMENT '设备ID',
   `joined_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
   `left_at` datetime DEFAULT NULL COMMENT '离开时间',
@@ -456,6 +458,7 @@ CREATE TABLE `aiot_document_chunks` (
 
 CREATE TABLE `aiot_group_members` (
   `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+  `group_id` int(11) NOT NULL COMMENT '小组ID',
   `course_id` int(11) NOT NULL COMMENT '课程ID',
   `student_id` int(11) NOT NULL COMMENT '学生ID',
   `student_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '学生姓名（冗余字段）',
@@ -695,12 +698,6 @@ ALTER TABLE `aiot_agent_knowledge_bases`
 --
 --
 
---
--- 表的索引 `aiot_class_teachers`
---
-ALTER TABLE `aiot_class_teachers`
-  ADD KEY `ix_aiot_class_teachers_teacher_id` (`teacher_id`),
-  ADD KEY `ix_aiot_class_teachers_class_id` (`class_id`);
 
 --
 -- 表的索引 `aiot_core_devices`
@@ -712,7 +709,7 @@ ALTER TABLE `aiot_core_devices`
   ADD KEY `idx_user_id` (`user_id`),
   ADD KEY `idx_device_status` (`device_status`),
   ADD KEY `idx_is_online` (`is_online`),
-  ADD KEY `idx_mac_address` (`mac_address`),
+  ADD KEY `idx_mac_address` (`mac_address`);
 
 --
 -- 表的索引 `aiot_core_firmware_versions`
@@ -744,9 +741,7 @@ ALTER TABLE `aiot_core_users`
   ADD KEY `idx_teacher_number` (`teacher_number`),
   ADD KEY `idx_student_number` (`student_number`),
   ADD KEY `idx_real_name` (`real_name`),
-  ADD KEY `idx_deleted_at` (`deleted_at`),
-  ADD KEY `idx_class_id` (`class_id`),
-  ADD KEY `idx_group_id` (`group_id`);
+  ADD KEY `idx_deleted_at` (`deleted_at`);
 
 --
 -- 表的索引 `aiot_courses`
@@ -937,8 +932,6 @@ ALTER TABLE `aiot_prompt_templates`
 
 --
 --
-  ADD UNIQUE KEY `idx_uuid` (`uuid`);
-
 
 --
 -- 表 `aiot_agents` 的外键约束
@@ -956,18 +949,13 @@ ALTER TABLE `aiot_agent_knowledge_bases`
 --
 --
 
---
--- 表 `aiot_class_teachers` 的外键约束
---
-ALTER TABLE `aiot_class_teachers`
-  ADD CONSTRAINT `aiot_class_teachers_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `aiot_core_users` (`id`);
 
 --
 -- 表 `aiot_core_devices` 的外键约束
 --
 ALTER TABLE `aiot_core_devices`
   ADD CONSTRAINT `aiot_core_devices_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `aiot_core_products` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `aiot_core_devices_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `aiot_core_users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `aiot_core_devices_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `aiot_core_users` (`id`) ON DELETE SET NULL;
 
 --
 -- 表 `aiot_core_products` 的外键约束
@@ -978,7 +966,7 @@ ALTER TABLE `aiot_core_products`
 --
 -- 表 `aiot_core_users` 的外键约束
 --
-ALTER TABLE `aiot_core_users`
+-- aiot_core_users 表没有外键约束
 
 --
 -- 表 `aiot_courses` 的外键约束
@@ -1098,4 +1086,3 @@ ALTER TABLE `aiot_knowledge_bases`
 ALTER TABLE `aiot_plugins`
   ADD CONSTRAINT `aiot_plugins_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `aiot_core_users` (`id`);
 COMMIT;
-
