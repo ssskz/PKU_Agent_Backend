@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.models.device import Device
 from app.models.product import Product
+from app.models.agent import Agent
 from app.api.auth import get_current_user
 
 router = APIRouter()
@@ -83,12 +84,19 @@ async def get_dashboard_stats(
         for product_type, count in product_types
     ]
     
+    # 智能体数量统计（管理员可以看到所有智能体，普通用户只能看到自己创建的智能体）
+    agent_query = db.query(Agent)
+    if not is_admin_user(current_user):
+        agent_query = agent_query.filter(Agent.user_id == current_user.id)
+    agent_count = agent_query.filter(Agent.is_active == 1).count()
+    
     return {
         "total_devices": total_devices,
         "online_devices": online_devices,
         "offline_devices": offline_devices,
         "today_devices": today_devices,
         "product_types": product_type_stats,
+        "agent_count": agent_count,  # 添加智能体数量
         "alerts": 0  # 暂时设为0，后续可以添加告警逻辑
     }
 
