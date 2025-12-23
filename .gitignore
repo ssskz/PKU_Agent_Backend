@@ -187,6 +187,7 @@ __pycache__/
 # Local virtual environments (backend/celery)
 backend/venv/
 celery-service/venv/
+venv
 
 # Python tool caches
 .mypy_cache/
