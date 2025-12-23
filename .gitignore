@@ -169,4 +169,29 @@ yarn.lock
 .cache/
 .sass-cache/
 connect.lock
-derby.log
+
+
+# =============================
+# Python additions for backend
+# =============================
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.eggs/
+*.egg
+*.egg-info/
+.python-version
+
+# Local virtual environments (backend/celery)
+backend/venv/
+celery-service/venv/
+
+# Python tool caches
+.mypy_cache/
+.pytest_cache/
+.pytype/
+.tox/
+.nox/
+.pyre/
