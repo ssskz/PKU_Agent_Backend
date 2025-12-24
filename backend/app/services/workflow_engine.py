@@ -267,8 +267,11 @@ class NodeExecutor:
         execution: WorkflowExecution
     ) -> Dict[str, Any]:
         """执行结束节点"""
-        # 结束节点返回当前上下文
-        return context
+        # 结束节点返回执行完成标记，不要返回整个context避免循环引用
+        return {
+            "status": "completed",
+            "message": "工作流执行完成"
+        }
     
     async def _execute_llm_node(
         self,
@@ -284,8 +287,7 @@ class NodeExecutor:
         model_id = config.get("model_id")
         prompt = config.get("prompt", "")
         system_prompt = config.get("system_prompt", "")
-        temperature = config.get("temperature", 0.7)
-        max_tokens = config.get("max_tokens", 2000)
+        # temperature 和 max_tokens 从模型配置中读取
         
         # 变量替换
         prompt = VariableReplacer.replace(prompt, context)
@@ -299,7 +301,7 @@ class NodeExecutor:
         if not model:
             raise WorkflowEngineError(f"未找到模型 ID: {model_id}")
         
-        # 调用 LLM
+        # 调用 LLM（temperature 和 max_tokens 使用模型默认配置）
         llm_service = create_llm_service(model)
         
         messages = []
@@ -307,14 +309,18 @@ class NodeExecutor:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         
-        response = llm_service.chat(
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
+        # LLMService.chat() 不接受 temperature/max_tokens 参数
+        # 这些参数在模型配置中设置
+        response = llm_service.chat(messages=messages)
         
-        # 提取响应内容
-        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        # 提取响应内容 - 兼容不同返回格式
+        content = ""
+        if "response" in response:
+            # 标准格式返回
+            content = response.get("response", "")
+        elif "choices" in response:
+            # OpenAI 格式返回
+            content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
         
         return {
             "content": content,
@@ -534,17 +540,20 @@ class NodeExecutor:
         # 调用 LLM
         llm_service = create_llm_service(model)
         
+        # LLMService.chat() 不接受 temperature/max_tokens 参数
         response = llm_service.chat(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.1,  # 低温度以获得更稳定的结果
-            max_tokens=500
+            ]
         )
         
-        # 提取响应内容
-        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        # 提取响应内容 - 兼容不同返回格式
+        content = ""
+        if "response" in response:
+            content = response.get("response", "")
+        elif "choices" in response:
+            content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
         
         # 尝试解析JSON
         try:
@@ -841,6 +850,50 @@ class WorkflowEngine:
         
         return result
     
+    def _safe_json_serialize(self, data: Any, max_depth: int = 5) -> Any:
+        """
+        安全地序列化数据，避免循环引用
+        
+        Args:
+            data: 要序列化的数据
+            max_depth: 最大递归深度
+        
+        Returns:
+            可安全序列化的数据
+        """
+        if max_depth <= 0:
+            return "[数据过深]"
+        
+        if data is None:
+            return None
+        
+        if isinstance(data, (str, int, float, bool)):
+            return data
+        
+        if isinstance(data, dict):
+            result = {}
+            for key, value in data.items():
+                try:
+                    result[key] = self._safe_json_serialize(value, max_depth - 1)
+                except Exception:
+                    result[key] = "[序列化失败]"
+            return result
+        
+        if isinstance(data, (list, tuple)):
+            result = []
+            for item in data[:100]:  # 限制列表长度
+                try:
+                    result.append(self._safe_json_serialize(item, max_depth - 1))
+                except Exception:
+                    result.append("[序列化失败]")
+            return result
+        
+        # 其他类型转为字符串
+        try:
+            return str(data)[:1000]  # 限制字符串长度
+        except Exception:
+            return "[无法序列化]"
+    
     def _log_execution(
         self,
         execution: WorkflowExecution,
@@ -854,17 +907,34 @@ class WorkflowEngine:
         duration_ms: Optional[int] = None
     ):
         """记录执行日志"""
-        log = WorkflowExecutionLog(
-            execution_id=execution.id,
-            node_id=node_id,
-            node_name=node_name,
-            node_type=node_type,
-            level=level,
-            message=message,
-            input_data=input_data,
-            output_data=output_data,
-            timestamp=datetime.utcnow(),
-            duration_ms=duration_ms
-        )
-        self.db.add(log)
-        self.db.commit()
+        try:
+            # 安全序列化输出数据，避免循环引用
+            safe_output_data = None
+            if output_data is not None:
+                safe_output_data = self._safe_json_serialize(output_data)
+            
+            safe_input_data = None
+            if input_data is not None:
+                safe_input_data = self._safe_json_serialize(input_data)
+            
+            log = WorkflowExecutionLog(
+                execution_id=execution.id,
+                node_id=node_id,
+                node_name=node_name,
+                node_type=node_type,
+                level=level,
+                message=message,
+                input_data=safe_input_data,
+                output_data=safe_output_data,
+                timestamp=datetime.utcnow(),
+                duration_ms=duration_ms
+            )
+            self.db.add(log)
+            self.db.commit()
+        except Exception as e:
+            # 如果日志记录失败，只打印错误，不影响主流程
+            logger.error(f"记录执行日志失败: {str(e)}")
+            try:
+                self.db.rollback()
+            except:
+                pass
